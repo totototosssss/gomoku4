@@ -6,44 +6,44 @@
     <title>Quad-Renju</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
-        :root { --bg: #181818; --board: #e3c18d; --line: rgba(0,0,0,0.3); --text: #f0f0f0; --accent: #3498db; --success: #2ecc71; --danger: #e74c3c; }
-        body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0; height: 100vh; overflow: hidden; touch-action: manipulation; }
+        :root { --bg: #1e1e1e; --board: #e0b876; --line: rgba(0,0,0,0.4); --text: #f5f5f5; --accent: #4da8da; --success: #2ecc71; --danger: #e74c3c; }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0; height: 100vh; overflow: hidden; touch-action: manipulation; }
         button { outline: none; border: none; cursor: pointer; font-family: inherit; }
         
         #login { position: absolute; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-        .box { background: #242424; padding: 2rem; border-radius: 12px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        .box { background: #2a2a2a; padding: 2rem; border-radius: 12px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); }
         .box h2 { margin: 0 0 1.5rem 0; font-size: 1.3rem; }
-        .box input { width: 100%; padding: 12px; margin-bottom: 1.5rem; box-sizing: border-box; border-radius: 6px; border: 1px solid #444; background: #111; color: white; font-size: 1rem; text-align: center; }
-        .box button { width: 100%; padding: 12px; background: var(--accent); color: white; border-radius: 6px; font-size: 1.1rem; font-weight: bold; transition: 0.2s; }
+        .box input { width: 100%; padding: 12px; margin-bottom: 1.5rem; box-sizing: border-box; border-radius: 6px; border: 1px solid #555; background: #111; color: white; font-size: 1rem; text-align: center; }
+        .box button { width: 100%; padding: 12px; background: var(--accent); color: white; border-radius: 6px; font-size: 1.1rem; font-weight: bold; }
         
-        #game { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 500px; padding: 15px; box-sizing: border-box; }
-        #share { background: #2a2a2a; color: white; padding: 10px 20px; border-radius: 24px; font-size: 0.9rem; margin-bottom: 20px; border: 1px solid #444; }
+        #game { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 500px; padding: 10px; box-sizing: border-box; }
+        #share { background: #333; color: white; padding: 10px 20px; border-radius: 20px; font-size: 0.9rem; margin-bottom: 15px; border: 1px solid #555; font-weight: bold; width: 90%; max-width: 300px; }
         
-        #seats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; margin-bottom: 20px; }
-        .seat { background: #242424; color: #888; padding: 12px 8px; border-radius: 8px; font-weight: bold; display: flex; flex-direction: column; align-items: center; border: 2px solid transparent; transition: 0.2s; }
+        #seats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; margin-bottom: 15px; }
+        .seat { background: #2d2d2d; color: #999; padding: 10px 5px; border-radius: 8px; font-weight: bold; display: flex; flex-direction: column; align-items: center; border: 2px solid transparent; }
         .seat span:first-child { font-size: 0.7rem; margin-bottom: 4px; }
         .seat span:last-child { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; text-align: center; }
-        .seat.occupied { color: #ccc; background: #2a2a2a; pointer-events: none; }
+        .seat.occupied { color: #ddd; background: #333; pointer-events: none; }
         .seat.my-seat { background: #1a3a2a; color: var(--success); border-color: var(--success); }
-        .seat.turn { box-shadow: 0 0 12px var(--accent); border-color: var(--accent); transform: scale(1.02); color: white; }
+        .seat.turn { box-shadow: 0 0 12px var(--accent); border-color: var(--accent); color: white; }
         
-        #board-wrapper { position: relative; width: 100%; aspect-ratio: 1/1; }
-        #board { display: grid; grid-template-columns: repeat(15, 1fr); width: 100%; height: 100%; background: var(--board); border: 3px solid #6d4c41; }
+        #board-wrapper { position: relative; width: 100%; aspect-ratio: 1/1; max-width: 450px; }
+        #board { display: grid; grid-template-columns: repeat(15, 1fr); width: 100%; height: 100%; background: var(--board); border: 3px solid #5c3a21; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
         .cell { border: 0.5px solid var(--line); position: relative; display: flex; align-items: center; justify-content: center; }
         .stone { width: 85%; height: 85%; border-radius: 50%; z-index: 2; }
         .stone.black { background: radial-gradient(circle at 30% 30%, #444, #000); }
-        .stone.white { background: radial-gradient(circle at 30% 30%, #fff, #ddd); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        .stone.ghost { opacity: 0.6; transform: scale(0.8); }
+        .stone.white { background: radial-gradient(circle at 30% 30%, #fff, #ddd); box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .stone.ghost { opacity: 0.5; transform: scale(0.8); }
         
-        #status { height: 70px; margin-top: 15px; display: flex; align-items: center; justify-content: center; width: 100%; }
+        #status { height: 60px; margin-top: 15px; display: flex; align-items: center; justify-content: center; width: 100%; }
         #msg { font-size: 1.1rem; font-weight: bold; text-align: center; }
-        #actions { display: none; gap: 12px; }
-        #actions button { padding: 12px 24px; font-size: 1rem; border-radius: 8px; font-weight: bold; color: white; }
+        #actions { display: none; gap: 10px; }
+        #actions button { padding: 12px 20px; font-size: 1rem; border-radius: 8px; font-weight: bold; color: white; }
         .btn-ok { background: var(--success); }
-        .btn-no { background: #555; }
+        .btn-no { background: #666; }
         
         #modal { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.85); z-index: 50; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
-        #modal h2 { margin-bottom: 24px; font-size: 1.6rem; line-height: 1.4; color: white; }
+        #modal h2 { margin-bottom: 24px; font-size: 1.5rem; line-height: 1.4; color: white; }
         #modal button { padding: 12px 32px; background: var(--accent); color: white; font-size: 1.1rem; border-radius: 8px; font-weight: bold; }
     </style>
 </head>
@@ -58,7 +58,7 @@
 </div>
 
 <div id="game">
-    <button id="share" onclick="copyUrl()">URLをコピーして招待</button>
+    <button id="share" onclick="copyShareUrl()">🔗 URLをコピーして招待</button>
 
     <div id="seats">
         <button id="seat-0" class="seat" onclick="takeSeat(0)"><span>Team A(1) [黒]</span><span id="name-0">参加する</span></button>
@@ -76,7 +76,7 @@
     </div>
 
     <div id="status">
-        <div id="msg">接続中...</div>
+        <div id="msg">サーバーに接続中...</div>
         <div id="actions">
             <button class="btn-no" onclick="cancelMove()">キャンセル</button>
             <button class="btn-ok" onclick="confirmMove()">ここに置く</button>
@@ -92,6 +92,13 @@ if (!uid) {
 }
 let myName = localStorage.getItem('qr_name') || '';
 
+const urlParams = new URLSearchParams(window.location.search);
+let rId = urlParams.get('r');
+if (!rId) {
+    rId = Math.random().toString(36).slice(2, 8);
+    window.history.replaceState(null, '', '?r=' + rId);
+}
+
 const S = 15;
 let board = Array.from({length: S}, () => Array(S).fill(0));
 let turn = 0;
@@ -104,53 +111,52 @@ const mEl = document.getElementById('msg');
 const aEl = document.getElementById('actions');
 const mdEl = document.getElementById('modal');
 
-let rId = location.hash.slice(1);
-if (!rId) {
-    rId = Math.random().toString(36).slice(2, 8);
-    location.hash = rId;
-}
-
-const topic = `qr/r/${rId}`;
+const topic = `qr/room/${rId}`;
 const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
 client.on('connect', () => {
-    client.subscribe(topic);
-    if (myName) {
-        showGame();
-        client.publish(topic, JSON.stringify({ t: 'sync_req', id: uid }));
-    }
+    client.subscribe(topic, () => {
+        if (myName) {
+            showGame();
+            client.publish(topic, JSON.stringify({ t: 'req', id: uid }));
+        }
+    });
 });
 
 client.on('message', (_, msg) => {
-    const d = JSON.parse(msg.toString());
-    
-    if (d.t === 'seat') {
-        seats[d.idx] = { id: d.id, name: d.name };
-        checkStart();
-        renderUI();
-    } else if (d.t === 'move') {
-        applyMove(d.r, d.c, d.turn);
-    } else if (d.t === 'reset') {
-        doReset();
-    } else if (d.t === 'sync_req' && d.id !== uid) {
-        if (seats.some(s => s !== null)) {
-            client.publish(topic, JSON.stringify({ t: 'sync_res', seats, board, turn, state }));
+    try {
+        const d = JSON.parse(msg.toString());
+        
+        if (d.t === 'seat') {
+            seats[d.idx] = { id: d.id, name: d.name };
+            checkStart();
+            renderUI();
+        } else if (d.t === 'move') {
+            applyMove(d.r, d.c, d.turn);
+        } else if (d.t === 'reset') {
+            doReset();
+        } else if (d.t === 'req' && d.id !== uid) {
+            if (seats.some(s => s && s.id === uid)) {
+                setTimeout(() => {
+                    client.publish(topic, JSON.stringify({ t: 'res', seats, board, turn, state }));
+                }, Math.random() * 300);
+            }
+        } else if (d.t === 'res') {
+            seats = d.seats; board = d.board; turn = d.turn; state = d.state;
+            renderBoard(); renderUI();
         }
-    } else if (d.t === 'sync_res') {
-        seats = d.seats; board = d.board; turn = d.turn; state = d.state;
-        renderBoard(); renderUI();
-    }
+    } catch(e) {}
 });
 
 document.getElementById('name-input').value = myName;
 
 function joinRoom() {
     const v = document.getElementById('name-input').value.trim();
-    if (!v) return;
+    if (!v) { alert("名前を入力してください"); return; }
     myName = v;
     localStorage.setItem('qr_name', myName);
     showGame();
-    client.publish(topic, JSON.stringify({ t: 'sync_req', id: uid }));
+    client.publish(topic, JSON.stringify({ t: 'req', id: uid }));
 }
 
 function showGame() {
@@ -172,7 +178,10 @@ function initB() {
 }
 
 function takeSeat(idx) {
-    if (seats.some(s => s && s.id === uid)) return;
+    if (seats.some(s => s && s.id === uid)) {
+        alert("すでに席についています");
+        return;
+    }
     if (seats[idx]) return;
     client.publish(topic, JSON.stringify({ t: 'seat', idx, id: uid, name: myName }));
 }
@@ -187,7 +196,11 @@ function clickCell(r, c) {
     if (state !== 'playing' || board[r][c] !== 0) return;
     
     const myIdx = seats.findIndex(s => s && s.id === uid);
-    if (myIdx === -1 || myIdx !== turn) return;
+    if (myIdx === -1) {
+        alert("席についてください");
+        return;
+    }
+    if (myIdx !== turn) return;
 
     if (ghost && ghost.r === r && ghost.c === c) {
         confirmMove();
@@ -305,8 +318,8 @@ function renderUI() {
 
     if (state === 'waiting') {
         const ec = seats.filter(s => s === null).length;
-        mEl.innerText = ec > 0 ? `あと ${ec} 人の参加を待っています` : "ゲーム開始！";
-        mEl.style.color = "#3498db";
+        mEl.innerText = ec > 0 ? `あと ${ec} 人の参加を待っています` : "全員揃いました！";
+        mEl.style.color = "#4da8da";
     } else if (state === 'playing') {
         const myIdx = seats.findIndex(s => s && s.id === uid);
         if (myIdx === turn) {
@@ -314,7 +327,7 @@ function renderUI() {
             mEl.style.color = "#2ecc71";
         } else {
             mEl.innerText = `${seats[turn] ? seats[turn].name : '相手'} の番です`;
-            mEl.style.color = "#f0f0f0";
+            mEl.style.color = "#f5f5f5";
         }
     }
 }
@@ -339,11 +352,21 @@ function doReset() {
     initB(); renderUI();
 }
 
-function copyUrl() {
-    navigator.clipboard.writeText(location.href);
-    const b = document.getElementById('share');
-    b.innerText = "コピーしました！";
-    setTimeout(() => b.innerText = "URLをコピーして招待", 2000);
+function copyShareUrl() {
+    const shareUrl = window.location.origin + window.location.pathname + '?r=' + rId;
+    const textArea = document.createElement("textarea");
+    textArea.value = shareUrl;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+        document.execCommand('copy');
+        const b = document.getElementById('share');
+        b.innerText = "✅ コピーしました！";
+        setTimeout(() => b.innerText = "🔗 URLをコピーして招待", 2000);
+    } catch (err) {
+        alert("コピーできませんでした。URLを手動で共有してください: " + shareUrl);
+    }
+    document.body.removeChild(textArea);
 }
 </script>
 </body>
