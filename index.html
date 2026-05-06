@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Quad-Renju Online</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        :root {
+            --bg: #121212;
+            --board: #e3c18d;
+            --board-border: #8b5a2b;
+            --text: #e0e0e0;
+            --accent: #e74c3c;
+            --active: #2ecc71;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        #url-share {
+            background: #333;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            cursor: pointer;
+            border: 1px solid #555;
+            user-select: all;
+        }
+
+        .seats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+            width: 90vw;
+            max-width: 400px;
+        }
+
+        .seat-btn {
+            background: #2a2a2a;
+            color: white;
+            border: 2px solid transparent;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .seat-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .seat-btn.my-seat {
+            border-color: var(--active);
+            background: #1a3a2a;
+        }
+
+        .seat-btn.active-turn {
+            box-shadow: 0 0 12px var(--active);
+            transform: scale(1.05);
+        }
+
+        #board-container {
+            position: relative;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(15, 1fr);
+            width: 95vw;
+            height: 95vw;
+            max-width: 500px;
+            max-height: 500px;
+            background-color: var(--board);
+            border: 4px solid var(--board-border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .cell {
+            border: 0.5px solid rgba(0,0,0,0.2);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cell::before { content: ''; position: absolute; width: 100%; height: 1px; background: rgba(0,0,0,0.4); }
+        .cell::after { content: ''; position: absolute; width: 1px; height: 100%; background: rgba(0,0,0,0.4); }
+
+        .stone {
+            width: 85%;
+            height: 85%;
+            border-radius: 50%;
+            z-index: 2;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.4);
+            animation: pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .stone.black { background: radial-gradient(circle at 30% 30%, #555, #000); }
+        .stone.white { background: radial-gradient(circle at 30% 30%, #fff, #ddd); }
+
+        @keyframes pop {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        #message {
+            margin-top: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--active);
+            min-height: 1.5em;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 10;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        #overlay button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1.1rem;
+            background: var(--accent);
+            border: none;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div id="url-share" onclick="copyUrl()">URLをコピーしてLINEで共有</div>
+
+<div class="seats">
+    <button id="seat-0" class="seat-btn" onclick="takeSeat(0)">Team A(1) [黒]</button>
+    <button id="seat-1" class="seat-btn" onclick="takeSeat(1)">Team B(1) [白]</button>
+    <button id="seat-2" class="seat-btn" onclick="takeSeat(2)">Team A(2) [黒]</button>
+    <button id="seat-3" class="seat-btn" onclick="takeSeat(3)">Team B(2) [白]</button>
+</div>
+
+<div id="board-container">
+    <div id="board"></div>
+    <div id="overlay">
+        <h2 id="result-text"></h2>
+        <button onclick="publishReset()">もう一度遊ぶ</button>
+    </div>
+</div>
+
+<div id="message">接続中...</div>
+
+<script>
+const SIZE = 15;
+let board = Array(SIZE).fill().map(() => Array(SIZE).fill(0));
+let turn = 0;
+let mySeat = -1;
+let gameOver = false;
+
+const boardEl = document.getElementById('board');
+const msgEl = document.getElementById('message');
+const overlayEl = document.getElementById('overlay');
+const resultTextEl = document.getElementById('result-text');
+const seatBtns = [0, 1, 2, 3].map(i => document.getElementById(`seat-${i}`));
+
+let roomId = location.hash.substring(1);
+if (!roomId) {
+    roomId = Math.random().toString(36).substring(2, 10);
+    location.hash = roomId;
+}
+
+const topic = `quad-renju/room/${roomId}`;
+const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+
+client.on('connect', () => {
+    client.subscribe(topic);
+    msgEl.innerText = "席を選んでください";
+});
+
+client.on('message', (t, message) => {
+    const data = JSON.parse(message.toString());
+    if (data.type === 'move') {
+        processMove(data.r, data.c, data.turn);
+    } else if (data.type === 'reset') {
+        executeReset();
+    }
+});
+
+function initBoard() {
+    boardEl.innerHTML = '';
+    for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.onclick = () => handleCellClick(r, c);
+            boardEl.appendChild(cell);
+        }
+    }
+}
+
+function takeSeat(seatIdx) {
+    if (mySeat !== -1) {
+        seatBtns[mySeat].classList.remove('my-seat');
+    }
+    mySeat = seatIdx;
+    seatBtns[seatIdx].classList.add('my-seat');
+    updateUI();
+}
+
+function handleCellClick(r, c) {
+    if (gameOver || board[r][c] !== 0) return;
+    if (mySeat !== turn) {
+        alert("あなたの番ではありません！");
+        return;
+    }
+    client.publish(topic, JSON.stringify({ type: 'move', r, c, turn }));
+}
+
+function processMove(r, c, moveTurn) {
+    if (gameOver || board[r][c] !== 0) return;
+    
+    const isBlack = (moveTurn % 2 === 0);
+    const colorCode = isBlack ? 1 : 2;
+    
+    board[r][c] = colorCode;
+    renderStone(r, c, isBlack);
+    
+    const winStatus = checkWin(r, c, colorCode);
+    if (winStatus === 'win') {
+        endGame(isBlack ? 'A' : 'B');
+        return;
+    } else if (winStatus === 'lose_chouren') {
+        endGame('B', '黒の長連（禁手）によりTeam Bの勝利！');
+        return;
+    }
+
+    turn = (moveTurn + 1) % 4;
+    updateUI();
+}
+
+function renderStone(r, c, isBlack) {
+    const cell = boardEl.children[r * SIZE + c];
+    const stone = document.createElement('div');
+    stone.className = `stone ${isBlack ? 'black' : 'white'}`;
+    cell.appendChild(stone);
+}
+
+function checkWin(r, c, colorCode) {
+    const dirs = [[1,0], [0,1], [1,1], [1,-1]];
+    let isBlack = (colorCode === 1);
+
+    for (let [dr, dc] of dirs) {
+        let count = 1;
+        for (let i = 1; i < 9; i++) {
+            let nr = r + dr * i, nc = c + dc * i;
+            if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === colorCode) count++; else break;
+        }
+        for (let i = 1; i < 9; i++) {
+            let nr = r - dr * i, nc = c - dc * i;
+            if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === colorCode) count++; else break;
+        }
+
+        if (isBlack) {
+            if (count > 5) return 'lose_chouren';
+            if (count === 5) return 'win';
+        } else {
+            if (count >= 5) return 'win';
+        }
+    }
+    return 'continue';
+}
+
+function updateUI() {
+    seatBtns.forEach((btn, i) => {
+        btn.classList.toggle('active-turn', i === turn);
+    });
+    
+    const teams = ["A(1)", "B(1)", "A(2)", "B(2)"];
+    if (mySeat === turn) {
+        msgEl.innerText = "あなたの番です！";
+        msgEl.style.color = "#2ecc71";
+    } else {
+        msgEl.innerText = `Team ${teams[turn]} の番を待っています...`;
+        msgEl.style.color = "#e0e0e0";
+    }
+}
+
+function endGame(winnerTeam, customMsg = null) {
+    gameOver = true;
+    overlayEl.style.display = 'flex';
+    resultTextEl.innerText = customMsg ? customMsg : `Team ${winnerTeam} の勝利！`;
+}
+
+function publishReset() {
+    client.publish(topic, JSON.stringify({ type: 'reset' }));
+}
+
+function executeReset() {
+    board = Array(SIZE).fill().map(() => Array(SIZE).fill(0));
+    turn = 0;
+    gameOver = false;
+    overlayEl.style.display = 'none';
+    initBoard();
+    updateUI();
+}
+
+function copyUrl() {
+    navigator.clipboard.writeText(window.location.href);
+    const btn = document.getElementById('url-share');
+    btn.innerText = "コピーしました！";
+    setTimeout(() => btn.innerText = "URLをコピーしてLINEで共有", 2000);
+}
+
+initBoard();
+</script>
+</body>
+</html>
