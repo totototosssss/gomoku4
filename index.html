@@ -3,407 +3,347 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Quad-Renju 2vs2 Live</title>
+    <title>Quad-Renju</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
-        :root {
-            --bg: #121212; --board: #e3c18d; --board-border: #8b5a2b;
-            --text: #e0e0e0; --accent: #ffcc00; --active: #2ecc71; --error: #e74c3c;
-        }
-
-        body {
-            background-color: var(--bg); color: var(--text);
-            font-family: 'Hiragino Sans', 'Meiryo', sans-serif;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            margin: 0; height: 100vh; overflow: hidden; touch-action: manipulation;
-        }
-
-        /* --- ログイン画面 --- */
-        #login-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(18, 18, 18, 0.95); z-index: 100;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-        }
-        .login-box {
-            background: #222; padding: 30px; border-radius: 15px; border: 1px solid #444;
-            text-align: center; width: 80%; max-width: 300px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-        }
-        .login-box input {
-            width: 100%; padding: 10px; margin: 15px 0; border-radius: 5px; border: none;
-            box-sizing: border-box; font-size: 1rem; text-align: center;
-        }
-        .login-box button {
-            background: var(--accent); color: #000; font-weight: bold; padding: 10px 20px;
-            border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; width: 100%;
-        }
-
-        /* --- ゲーム画面 --- */
-        #game-screen { display: none; flex-direction: column; align-items: center; width: 100%; }
+        :root { --bg: #181818; --board: #e3c18d; --line: rgba(0,0,0,0.3); --text: #f0f0f0; --accent: #3498db; --success: #2ecc71; --danger: #e74c3c; }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0; height: 100vh; overflow: hidden; touch-action: manipulation; }
+        button { outline: none; border: none; cursor: pointer; font-family: inherit; }
         
-        #url-share {
-            background: #333; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem;
-            margin-bottom: 10px; cursor: pointer; border: 1px solid #555;
-        }
-
-        .seats {
-            display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
-            margin-bottom: 10px; width: 95vw; max-width: 450px;
-        }
-        .seat-btn {
-            background: #2a2a2a; color: white; border: 2px solid #444; padding: 8px;
-            border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.2s;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-        }
-        .seat-btn span.role { font-size: 0.7rem; color: #aaa; margin-bottom: 3px; }
-        .seat-btn span.name { font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-        .seat-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        .seat-btn.occupied { background: #3a3a3a; border-color: #555; }
-        .seat-btn.my-seat { border-color: var(--active); background: #1a3a2a; }
-        .seat-btn.active-turn { box-shadow: 0 0 12px var(--active); transform: scale(1.02); border-color: var(--active); }
-
-        #board-container { position: relative; }
-        #board {
-            display: grid; grid-template-columns: repeat(15, 1fr);
-            width: 95vw; height: 95vw; max-width: 450px; max-height: 450px;
-            background-color: var(--board); border: 4px solid var(--board-border);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        .cell { border: 0.5px solid rgba(0,0,0,0.2); position: relative; display: flex; align-items: center; justify-content: center; }
-        .cell::before { content: ''; position: absolute; width: 100%; height: 1px; background: rgba(0,0,0,0.4); }
-        .cell::after { content: ''; position: absolute; width: 1px; height: 100%; background: rgba(0,0,0,0.4); }
-
-        .stone {
-            width: 85%; height: 85%; border-radius: 50%; z-index: 2;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.4); animation: pop 0.2s ease-out;
-        }
-        .stone.black { background: radial-gradient(circle at 30% 30%, #555, #000); }
-        .stone.white { background: radial-gradient(circle at 30% 30%, #fff, #ddd); }
-        @keyframes pop { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-
-        #message { margin-top: 15px; font-size: 1.1rem; font-weight: bold; min-height: 1.5em; text-align: center;}
-
-        #overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7); z-index: 10; display: none;
-            align-items: center; justify-content: center; flex-direction: column;
-        }
-        #overlay button {
-            margin-top: 20px; padding: 10px 20px; font-size: 1.1rem;
-            background: var(--accent); border: none; color: black; font-weight: bold; border-radius: 5px; cursor: pointer;
-        }
+        #login { position: absolute; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        .box { background: #242424; padding: 2rem; border-radius: 12px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        .box h2 { margin: 0 0 1.5rem 0; font-size: 1.3rem; }
+        .box input { width: 100%; padding: 12px; margin-bottom: 1.5rem; box-sizing: border-box; border-radius: 6px; border: 1px solid #444; background: #111; color: white; font-size: 1rem; text-align: center; }
+        .box button { width: 100%; padding: 12px; background: var(--accent); color: white; border-radius: 6px; font-size: 1.1rem; font-weight: bold; transition: 0.2s; }
+        
+        #game { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 500px; padding: 15px; box-sizing: border-box; }
+        #share { background: #2a2a2a; color: white; padding: 10px 20px; border-radius: 24px; font-size: 0.9rem; margin-bottom: 20px; border: 1px solid #444; }
+        
+        #seats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; margin-bottom: 20px; }
+        .seat { background: #242424; color: #888; padding: 12px 8px; border-radius: 8px; font-weight: bold; display: flex; flex-direction: column; align-items: center; border: 2px solid transparent; transition: 0.2s; }
+        .seat span:first-child { font-size: 0.7rem; margin-bottom: 4px; }
+        .seat span:last-child { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; text-align: center; }
+        .seat.occupied { color: #ccc; background: #2a2a2a; pointer-events: none; }
+        .seat.my-seat { background: #1a3a2a; color: var(--success); border-color: var(--success); }
+        .seat.turn { box-shadow: 0 0 12px var(--accent); border-color: var(--accent); transform: scale(1.02); color: white; }
+        
+        #board-wrapper { position: relative; width: 100%; aspect-ratio: 1/1; }
+        #board { display: grid; grid-template-columns: repeat(15, 1fr); width: 100%; height: 100%; background: var(--board); border: 3px solid #6d4c41; }
+        .cell { border: 0.5px solid var(--line); position: relative; display: flex; align-items: center; justify-content: center; }
+        .stone { width: 85%; height: 85%; border-radius: 50%; z-index: 2; }
+        .stone.black { background: radial-gradient(circle at 30% 30%, #444, #000); }
+        .stone.white { background: radial-gradient(circle at 30% 30%, #fff, #ddd); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .stone.ghost { opacity: 0.6; transform: scale(0.8); }
+        
+        #status { height: 70px; margin-top: 15px; display: flex; align-items: center; justify-content: center; width: 100%; }
+        #msg { font-size: 1.1rem; font-weight: bold; text-align: center; }
+        #actions { display: none; gap: 12px; }
+        #actions button { padding: 12px 24px; font-size: 1rem; border-radius: 8px; font-weight: bold; color: white; }
+        .btn-ok { background: var(--success); }
+        .btn-no { background: #555; }
+        
+        #modal { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.85); z-index: 50; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+        #modal h2 { margin-bottom: 24px; font-size: 1.6rem; line-height: 1.4; color: white; }
+        #modal button { padding: 12px 32px; background: var(--accent); color: white; font-size: 1.1rem; border-radius: 8px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<!-- ログイン画面 -->
-<div id="login-screen">
-    <div class="login-box">
+<div id="login">
+    <div class="box">
         <h2>プレイヤー登録</h2>
-        <input type="text" id="player-name-input" placeholder="あなたの名前を入力" maxlength="10">
-        <button onclick="enterRoom()">ルームに入る</button>
+        <input type="text" id="name-input" placeholder="名前を入力" maxlength="10" autocomplete="off">
+        <button onclick="joinRoom()">ルームに入る</button>
     </div>
 </div>
 
-<!-- ゲーム画面 -->
-<div id="game-screen">
-    <div id="url-share" onclick="copyUrl()">🔄 URLをコピーしてLINEで共有</div>
+<div id="game">
+    <button id="share" onclick="copyUrl()">URLをコピーして招待</button>
 
-    <div class="seats">
-        <button id="seat-0" class="seat-btn" onclick="takeSeat(0)">
-            <span class="role">Team A(1) [黒]</span><span class="name" id="name-0">空席</span>
-        </button>
-        <button id="seat-1" class="seat-btn" onclick="takeSeat(1)">
-            <span class="role">Team B(1) [白]</span><span class="name" id="name-1">空席</span>
-        </button>
-        <button id="seat-2" class="seat-btn" onclick="takeSeat(2)">
-            <span class="role">Team A(2) [黒]</span><span class="name" id="name-2">空席</span>
-        </button>
-        <button id="seat-3" class="seat-btn" onclick="takeSeat(3)">
-            <span class="role">Team B(2) [白]</span><span class="name" id="name-3">空席</span>
-        </button>
+    <div id="seats">
+        <button id="seat-0" class="seat" onclick="takeSeat(0)"><span>Team A(1) [黒]</span><span id="name-0">参加する</span></button>
+        <button id="seat-1" class="seat" onclick="takeSeat(1)"><span>Team B(1) [白]</span><span id="name-1">参加する</span></button>
+        <button id="seat-2" class="seat" onclick="takeSeat(2)"><span>Team A(2) [黒]</span><span id="name-2">参加する</span></button>
+        <button id="seat-3" class="seat" onclick="takeSeat(3)"><span>Team B(2) [白]</span><span id="name-3">参加する</span></button>
     </div>
 
-    <div id="board-container">
+    <div id="board-wrapper">
         <div id="board"></div>
-        <div id="overlay">
+        <div id="modal">
             <h2 id="result-text"></h2>
-            <button onclick="publishReset()">もう一度遊ぶ</button>
+            <button onclick="sendReset()">もう一度遊ぶ</button>
         </div>
     </div>
 
-    <div id="message">サーバーに接続中...</div>
+    <div id="status">
+        <div id="msg">接続中...</div>
+        <div id="actions">
+            <button class="btn-no" onclick="cancelMove()">キャンセル</button>
+            <button class="btn-ok" onclick="confirmMove()">ここに置く</button>
+        </div>
+    </div>
 </div>
 
 <script>
-// --- セッション管理 (リロードしても席を維持するため) ---
-let myClientId = sessionStorage.getItem('qr_clientId');
-if (!myClientId) {
-    myClientId = Math.random().toString(36).substring(2, 10);
-    sessionStorage.setItem('qr_clientId', myClientId);
+let uid = localStorage.getItem('qr_uid');
+if (!uid) {
+    uid = Math.random().toString(36).slice(2);
+    localStorage.setItem('qr_uid', uid);
 }
-let myName = sessionStorage.getItem('qr_playerName') || '';
+let myName = localStorage.getItem('qr_name') || '';
 
-// --- ゲーム状態 ---
-const SIZE = 15;
-let board = Array(SIZE).fill().map(() => Array(SIZE).fill(0));
+const S = 15;
+let board = Array.from({length: S}, () => Array(S).fill(0));
 let turn = 0;
-let seats = [null, null, null, null]; // { id: 'client_id', name: 'player_name' }
-let gameState = 'waiting'; // waiting, playing, finished
+let seats = [null, null, null, null];
+let state = 'waiting';
+let ghost = null;
 
-// --- DOM ---
-const boardEl = document.getElementById('board');
-const msgEl = document.getElementById('message');
-const overlayEl = document.getElementById('overlay');
-const resultTextEl = document.getElementById('result-text');
+const bEl = document.getElementById('board');
+const mEl = document.getElementById('msg');
+const aEl = document.getElementById('actions');
+const mdEl = document.getElementById('modal');
 
-// --- ルームURL設定 ---
-let roomId = location.hash.substring(1);
-if (!roomId) {
-    roomId = Math.random().toString(36).substring(2, 8);
-    location.hash = roomId;
+let rId = location.hash.slice(1);
+if (!rId) {
+    rId = Math.random().toString(36).slice(2, 8);
+    location.hash = rId;
 }
 
-// --- MQTT通信設定 ---
-const topic = `quad-renju/room/${roomId}`;
+const topic = `qr/r/${rId}`;
 const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
 client.on('connect', () => {
     client.subscribe(topic);
     if (myName) {
-        showGameScreen();
-        // 新しく入った時、すでにいる人に現在の状況をリクエストする
-        client.publish(topic, JSON.stringify({ type: 'sync_req', targetId: myClientId }));
+        showGame();
+        client.publish(topic, JSON.stringify({ t: 'sync_req', id: uid }));
     }
 });
 
-client.on('message', (t, message) => {
-    const data = JSON.parse(message.toString());
+client.on('message', (_, msg) => {
+    const d = JSON.parse(msg.toString());
     
-    if (data.type === 'take_seat') {
-        seats[data.seatIdx] = { id: data.clientId, name: data.name };
-        checkGameStart();
-        updateUI();
-    } 
-    else if (data.type === 'move') {
-        processMove(data.r, data.c, data.turn);
-    } 
-    else if (data.type === 'reset') {
-        executeReset();
-    }
-    else if (data.type === 'sync_req' && data.targetId !== myClientId) {
-        // 誰かが入室して同期を求めてきたら、自分が知っている情報を送ってあげる
-        // ※誰も席に座っていない場合は送らない
+    if (d.t === 'seat') {
+        seats[d.idx] = { id: d.id, name: d.name };
+        checkStart();
+        renderUI();
+    } else if (d.t === 'move') {
+        applyMove(d.r, d.c, d.turn);
+    } else if (d.t === 'reset') {
+        doReset();
+    } else if (d.t === 'sync_req' && d.id !== uid) {
         if (seats.some(s => s !== null)) {
-            client.publish(topic, JSON.stringify({ type: 'sync_state', seats, board, turn, gameState }));
+            client.publish(topic, JSON.stringify({ t: 'sync_res', seats, board, turn, state }));
         }
-    }
-    else if (data.type === 'sync_state') {
-        // 現在の状況を受け取って反映する
-        seats = data.seats;
-        board = data.board;
-        turn = data.turn;
-        gameState = data.gameState;
-        renderFullBoard();
-        updateUI();
+    } else if (d.t === 'sync_res') {
+        seats = d.seats; board = d.board; turn = d.turn; state = d.state;
+        renderBoard(); renderUI();
     }
 });
 
-// --- 画面遷移 ---
-document.getElementById('player-name-input').value = myName;
+document.getElementById('name-input').value = myName;
 
-function enterRoom() {
-    const input = document.getElementById('player-name-input').value.trim();
-    if (!input) { alert("名前を入力してください"); return; }
-    myName = input;
-    sessionStorage.setItem('qr_playerName', myName);
-    showGameScreen();
-    client.publish(topic, JSON.stringify({ type: 'sync_req', targetId: myClientId }));
+function joinRoom() {
+    const v = document.getElementById('name-input').value.trim();
+    if (!v) return;
+    myName = v;
+    localStorage.setItem('qr_name', myName);
+    showGame();
+    client.publish(topic, JSON.stringify({ t: 'sync_req', id: uid }));
 }
 
-function showGameScreen() {
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('game-screen').style.display = 'flex';
-    initBoard();
-    updateUI();
+function showGame() {
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('game').style.display = 'flex';
+    initB(); renderUI();
 }
 
-// --- ゲームロジック ---
-function initBoard() {
-    boardEl.innerHTML = '';
-    for (let r = 0; r < SIZE; r++) {
-        for (let c = 0; c < SIZE; c++) {
+function initB() {
+    bEl.innerHTML = '';
+    for (let r = 0; r < S; r++) {
+        for (let c = 0; c < S; c++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
-            cell.onclick = () => handleCellClick(r, c);
-            boardEl.appendChild(cell);
+            cell.onclick = () => clickCell(r, c);
+            bEl.appendChild(cell);
         }
     }
 }
 
-function takeSeat(seatIdx) {
-    // すでに他の席に座っているかチェック (1人1席の制限)
-    const myCurrentSeat = seats.findIndex(s => s && s.id === myClientId);
-    if (myCurrentSeat !== -1 && myCurrentSeat !== seatIdx) {
-        alert("すでに席についています。1人1席までです！");
-        return;
-    }
-    if (seats[seatIdx] !== null) return; // 既に埋まっている
-
-    client.publish(topic, JSON.stringify({ type: 'take_seat', seatIdx, clientId: myClientId, name: myName }));
+function takeSeat(idx) {
+    if (seats.some(s => s && s.id === uid)) return;
+    if (seats[idx]) return;
+    client.publish(topic, JSON.stringify({ t: 'seat', idx, id: uid, name: myName }));
 }
 
-function checkGameStart() {
-    // 4人全員揃ったか判定
-    if (gameState === 'waiting' && seats.every(s => s !== null)) {
-        gameState = 'playing';
+function checkStart() {
+    if (state === 'waiting' && seats.every(s => s !== null)) {
+        state = 'playing';
     }
 }
 
-function handleCellClick(r, c) {
-    if (gameState !== 'playing' || board[r][c] !== 0) return;
+function clickCell(r, c) {
+    if (state !== 'playing' || board[r][c] !== 0) return;
     
-    const myCurrentSeat = seats.findIndex(s => s && s.id === myClientId);
-    if (myCurrentSeat === -1) {
-        alert("席についてから打ってください");
-        return;
-    }
-    if (myCurrentSeat !== turn) {
-        alert("あなたの番ではありません！");
-        return;
-    }
+    const myIdx = seats.findIndex(s => s && s.id === uid);
+    if (myIdx === -1 || myIdx !== turn) return;
 
-    client.publish(topic, JSON.stringify({ type: 'move', r, c, turn }));
-}
-
-function processMove(r, c, moveTurn) {
-    if (gameState !== 'playing' || board[r][c] !== 0) return;
-    
-    const isBlack = (moveTurn % 2 === 0);
-    const colorCode = isBlack ? 1 : 2;
-    
-    board[r][c] = colorCode;
-    renderStone(r, c, isBlack);
-    
-    const winStatus = checkWin(r, c, colorCode);
-    if (winStatus === 'win') {
-        endGame(isBlack ? 'A' : 'B');
-        return;
-    } else if (winStatus === 'lose_chouren') {
-        endGame('B', '黒の長連（禁手）によりTeam Bの勝利！');
+    if (ghost && ghost.r === r && ghost.c === c) {
+        confirmMove();
         return;
     }
 
-    turn = (moveTurn + 1) % 4;
-    updateUI();
+    clearGhost();
+    ghost = {r, c};
+    drawStone(r, c, turn % 2 === 0, true);
+    
+    mEl.style.display = 'none';
+    aEl.style.display = 'flex';
 }
 
-function renderStone(r, c, isBlack) {
-    const cell = boardEl.children[r * SIZE + c];
-    if(cell.children.length > 0) return; // 既に石がある場合はスキップ
-    const stone = document.createElement('div');
-    stone.className = `stone ${isBlack ? 'black' : 'white'}`;
-    cell.appendChild(stone);
+function clearGhost() {
+    document.querySelectorAll('.stone.ghost').forEach(e => e.remove());
+    ghost = null;
+    aEl.style.display = 'none';
+    mEl.style.display = 'block';
 }
 
-function renderFullBoard() {
-    for (let r = 0; r < SIZE; r++) {
-        for (let c = 0; c < SIZE; c++) {
-            if (board[r][c] !== 0) {
-                renderStone(r, c, board[r][c] === 1);
-            }
+function cancelMove() {
+    clearGhost(); renderUI();
+}
+
+function confirmMove() {
+    if (!ghost) return;
+    client.publish(topic, JSON.stringify({ t: 'move', r: ghost.r, c: ghost.c, turn }));
+    clearGhost();
+}
+
+function applyMove(r, c, mTurn) {
+    if (state !== 'playing' || board[r][c] !== 0) return;
+    clearGhost();
+
+    const isB = mTurn % 2 === 0;
+    const col = isB ? 1 : 2;
+    
+    board[r][c] = col;
+    drawStone(r, c, isB, false);
+    
+    const w = checkW(r, c, col);
+    if (w === 'win') {
+        end(isB ? 'A' : 'B');
+        return;
+    } else if (w === 'lose') {
+        end('B', '黒の長連(禁手)により\nTeam B の勝利！');
+        return;
+    }
+
+    turn = (mTurn + 1) % 4;
+    renderUI();
+}
+
+function drawStone(r, c, isB, isG) {
+    const cell = bEl.children[r * S + c];
+    if (!isG) cell.innerHTML = '';
+    else if (cell.children.length > 0) return;
+    
+    const st = document.createElement('div');
+    st.className = `stone ${isB ? 'black' : 'white'} ${isG ? 'ghost' : ''}`;
+    cell.appendChild(st);
+}
+
+function renderBoard() {
+    for (let r = 0; r < S; r++) {
+        for (let c = 0; c < S; c++) {
+            if (board[r][c] !== 0) drawStone(r, c, board[r][c] === 1, false);
         }
     }
 }
 
-// 勝利判定
-function checkWin(r, c, colorCode) {
+function checkW(r, c, col) {
     const dirs = [[1,0], [0,1], [1,1], [1,-1]];
-    let isBlack = (colorCode === 1);
+    const isB = col === 1;
     for (let [dr, dc] of dirs) {
-        let count = 1;
+        let cnt = 1;
         for (let i = 1; i < 9; i++) {
             let nr = r + dr * i, nc = c + dc * i;
-            if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === colorCode) count++; else break;
+            if (nr >= 0 && nr < S && nc >= 0 && nc < S && board[nr][nc] === col) cnt++; else break;
         }
         for (let i = 1; i < 9; i++) {
             let nr = r - dr * i, nc = c - dc * i;
-            if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === colorCode) count++; else break;
+            if (nr >= 0 && nr < S && nc >= 0 && nc < S && board[nr][nc] === col) cnt++; else break;
         }
-        if (isBlack) {
-            if (count > 5) return 'lose_chouren';
-            if (count === 5) return 'win';
+        if (isB) {
+            if (cnt > 5) return 'lose';
+            if (cnt === 5) return 'win';
         } else {
-            if (count >= 5) return 'win';
+            if (cnt >= 5) return 'win';
         }
     }
-    return 'continue';
+    return 'none';
 }
 
-function updateUI() {
-    // 席ボタンの表示更新
-    seats.forEach((seatData, i) => {
+function renderUI() {
+    seats.forEach((sd, i) => {
         const btn = document.getElementById(`seat-${i}`);
-        const nameSpan = document.getElementById(`name-${i}`);
-        
-        if (seatData) {
-            nameSpan.innerText = seatData.name;
+        const nSp = document.getElementById(`name-${i}`);
+        if (sd) {
+            nSp.innerText = sd.name;
             btn.classList.add('occupied');
-            btn.classList.toggle('my-seat', seatData.id === myClientId);
+            btn.classList.toggle('my-seat', sd.id === uid);
         } else {
-            nameSpan.innerText = "空席 (タップで参加)";
+            nSp.innerText = "参加する";
             btn.classList.remove('occupied', 'my-seat');
         }
-        
-        if (gameState === 'playing') {
-            btn.classList.toggle('active-turn', i === turn);
-        } else {
-            btn.classList.remove('active-turn');
-        }
+        if (state === 'playing') btn.classList.toggle('turn', i === turn);
+        else btn.classList.remove('turn');
     });
 
-    // メッセージの更新
-    if (gameState === 'waiting') {
-        const emptyCount = seats.filter(s => s === null).length;
-        msgEl.innerText = emptyCount > 0 ? `あと ${emptyCount} 人の参加を待っています...` : "ゲーム開始！";
-        msgEl.style.color = "#ffcc00";
-    } else if (gameState === 'playing') {
-        const currentSeat = seats[turn];
-        const mySeatIdx = seats.findIndex(s => s && s.id === myClientId);
-        
-        if (mySeatIdx === turn) {
-            msgEl.innerText = "👉 あなたの番です！";
-            msgEl.style.color = "#2ecc71";
+    if (ghost) return;
+    mEl.style.display = 'block';
+    aEl.style.display = 'none';
+
+    if (state === 'waiting') {
+        const ec = seats.filter(s => s === null).length;
+        mEl.innerText = ec > 0 ? `あと ${ec} 人の参加を待っています` : "ゲーム開始！";
+        mEl.style.color = "#3498db";
+    } else if (state === 'playing') {
+        const myIdx = seats.findIndex(s => s && s.id === uid);
+        if (myIdx === turn) {
+            mEl.innerText = "あなたの番です";
+            mEl.style.color = "#2ecc71";
         } else {
-            msgEl.innerText = `⏳ ${currentSeat ? currentSeat.name : '相手'} の番を待っています...`;
-            msgEl.style.color = "#e0e0e0";
+            mEl.innerText = `${seats[turn] ? seats[turn].name : '相手'} の番です`;
+            mEl.style.color = "#f0f0f0";
         }
     }
 }
 
-function endGame(winnerTeam, customMsg = null) {
-    gameState = 'finished';
-    overlayEl.style.display = 'flex';
-    resultTextEl.innerText = customMsg ? customMsg : `👑 Team ${winnerTeam} の勝利！`;
+function end(winT, cMsg = null) {
+    state = 'finished';
+    clearGhost();
+    mdEl.style.display = 'flex';
+    document.getElementById('result-text').innerText = cMsg ? cMsg : `Team ${winT} の勝利！`;
 }
 
-function publishReset() {
-    client.publish(topic, JSON.stringify({ type: 'reset' }));
+function sendReset() {
+    client.publish(topic, JSON.stringify({ t: 'reset' }));
 }
 
-function executeReset() {
-    board = Array(SIZE).fill().map(() => Array(SIZE).fill(0));
+function doReset() {
+    board = Array.from({length: S}, () => Array(S).fill(0));
     turn = 0;
-    gameState = 'playing'; // メンバーはそのまま維持して再戦
-    overlayEl.style.display = 'none';
-    initBoard();
-    updateUI();
+    state = 'playing';
+    clearGhost();
+    mdEl.style.display = 'none';
+    initB(); renderUI();
 }
 
 function copyUrl() {
-    navigator.clipboard.writeText(window.location.href);
-    const btn = document.getElementById('url-share');
-    btn.innerText = "✅ コピーしました！";
-    setTimeout(() => btn.innerText = "🔄 URLをコピーしてLINEで共有", 2000);
+    navigator.clipboard.writeText(location.href);
+    const b = document.getElementById('share');
+    b.innerText = "コピーしました！";
+    setTimeout(() => b.innerText = "URLをコピーして招待", 2000);
 }
 </script>
 </body>
